@@ -1,0 +1,294 @@
+<?php namespace ProcessWire;
+/**
+ * MarkupAutoStylesheets
+ *
+ * Helper for automatic stylesheet inclusion
+ *
+ * By Steffen Henschel
+ *
+ * @todo make protected styles work
+ * 
+ */
+
+class MarkupAutoStylesheets extends WireData implements Module , ConfigurableModule {
+
+	private $stylesheets = array(
+		'before' => array(),
+		'default' => array(),
+		'after' => array()
+		);
+
+	private $protectedStyles = array();
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Auto Stylesheets'),
+			'version' => '0.0.1',
+			'summary' => __('Automatically add stylesheets. Organize in three different priorities: \"before\", \"after\" and default.'),
+			'autoload' => true,
+			'requires' => array('ProcessWire>=3.0.0', 'PHP>=5.6.0')
+		);
+	}
+
+	static public function getDefaultConfig() {
+		return array(
+			'autoMarkup' 		=> true,
+			'grabConfigStyles' 	=> true
+			);
+	}
+
+	/**
+	 * Populate default configuration (will be overwritten after constructor with user's own configuration)
+	 *
+	 */
+	public function __construct() {
+		foreach(self::getDefaultConfig() as $key => $value) {
+			$this->$key = $value;
+		}
+	}
+
+	/**
+	* Initializing the hooks
+	*
+	*/
+	public function init() {
+		$this->addHookAfter("Page::render", $this, 'insertStylesheetLinks');
+	}
+
+	public function ready() {
+
+	}
+
+
+	
+	/**
+	 * insertStylesheetLinks
+	 * 
+	 * hook function
+	 * 
+	 * @param  HookEvent $event [description]
+	 * @return [type]           [description]
+	 */
+	public function insertStylesheetLinks(HookEvent $event) {
+		
+		if($this->autoMarkup == false || $this->page->template == 'admin') return;
+		bd($this->render());
+		$event->return = str_ireplace("</head>", $this->render()."\n</head>", $event->return); 
+	}
+
+
+
+	/**
+	 * public module methods
+	 * 
+	 */
+
+	public function ___addBefore($input, $id = null, $options = []) {
+		$this->addTo($this->stylesheets['before'], $input, $id, $options);
+	}
+
+	public function ___add($input, $id = null, $options = []) {
+		$this->addTo($this->stylesheets['default'], $input, $id, $options);
+	}
+
+	public function ___addAfter($input, $id = null, $options = []) {
+		$this->addTo($this->stylesheets['after'], $input, $id, $options);
+	}
+
+	public function ___render() {
+		$string = "\n";
+		foreach ($this->getMergedArray(true) as $v) {
+			$string .= "<link rel=\"stylesheet\" type=\"text/css\" href=\"$v\">\n";
+		}
+		return $string;
+	}
+
+	/**
+	 * getMergedArray
+	 *
+	 * get flat array of all stylesheets
+	 * 
+	 * @param  boolean $retainAutoMarkup 	retain automatic markup inclusion, defaults to false
+	 * @return array                    	flat array of all stylesheets
+	 */
+	public function ___getMergedArray($retainAutoMarkup = false) {
+		
+		if ($retainAutoMarkup == false) $this->autoMarkup = false;
+
+		$assembledArray = array_merge($this->stylesheets['before'], $this->stylesheets['default']);
+		if($this->grabConfigStyles) {
+			foreach ($this->config->styles as $stylesheet) {
+				$assembledArray[] = $stylesheet;
+			}
+		}
+		$assembledArray = array_merge($assembledArray, $this->stylesheets['after']);
+
+		return $assembledArray;
+	}
+
+	/**
+	 * delete
+	 *
+	 * search in all locations and delete corresponding value
+	 * 
+	 * @param  String $id_OR_url 	id or url
+	 */
+	public function delete(String $id_OR_url) {
+		foreach ($this->stylesheets as $location => &$locationArray) {
+			foreach ($locationArray as $key => $value) {
+				if ($id_OR_url === $key || $id_OR_url === $value) {
+					unset($locationArray[$key]);
+				}
+			}
+		}
+	}
+
+
+
+	/**
+	 * private, inner workings
+	 * 
+	 */
+
+	/**
+	 * addTo
+	 *
+	 * private method for saving the data
+	 * 
+	 * @param reference  	      &$target target position
+	 * @param mixed      $input   stylesheet url or array or FilenameArray
+	 * @param String     $id      id is "global", adding 'normalize' to 
+	 */
+	private function addTo(&$target, $input, $id = null, $options = []) {
+		
+		// id and array input forbidden
+
+		if (isset($id) && !gettype($input) == 'string' && (gettype($input) == 'array' || get_class($input) == 'FilenameArray')) {
+			throw new WireException("No id allowed for array input.", 1);
+			return;
+		}
+
+		// handle save / protect option
+
+		if (in_array('save', $options) || in_array('protect', $options)) {
+
+			if (in_array($input, $this->protectedStyles)) {
+				trigger_error("Stylesheet \"$input\" cannot be added, is protected!");
+				return;
+			} else if(in_array($id, $this->protectedStyles)) {
+				trigger_error("Stylesheet \"$input\" with id \"$id\" cannot be added, is protected!");
+				return;
+			}
+
+			if (isset($id)) {
+				$this->protectedStyles[] = $id;
+			} else {
+				$this->protectedStyles[] = $input;
+			}
+		}
+
+		// handle stylesheet input
+
+		if (isset($id)) {
+			
+			$this->resolveDuplicate($input, $id);
+			$target[$id] = $input;
+
+		} else if(gettype($input) == 'string') {
+
+			$this->resolveDuplicate($input);
+			$target[] = $input;
+
+		} else if(gettype($input) == 'array') {
+
+			foreach ($input as $k => $v) {
+
+				if (gettype($k) == 'string') {
+					$this->addTo($target, $v, $k);
+				} else {
+					$this->addTo($target, $v);
+				}
+			}
+
+		} else if(get_class($input) == 'FilenameArray') {
+
+			foreach ($input as $v) {
+				$this->addTo($target, $v);
+			}
+
+		}
+	}
+
+
+
+	/**
+	 * resolveDuplicate
+	 *
+	 * find duplicates and unset corresponding values for replacement
+	 * 
+	 * @param  [type] &$target     [description]
+	 * @param  [type] $input       [description]
+	 * @param  String $id          [description]
+	 * @return [type]              [description]
+	 */
+	private function resolveDuplicate($input, $id = null) {
+
+		foreach ($this->stylesheets as $location => &$locationArray) {
+			foreach ($locationArray as $key => $value) {
+				
+				if ((isset($id) && $id === $key) || $input === $value) {
+					unset($locationArray[$key]);
+					$idPhrase = isset($id) ? " with id \"$id\"" : "";
+					trigger_error("Duplicate \"$input\"$idPhrase removed from \"$location\"");
+				}
+			}
+		}
+	}
+
+
+
+	/**
+	 * Create the modules setting page
+	 *
+	 */
+	
+	static public function getModuleConfigInputfields(array $data) {
+
+		$modules = wire('modules');
+
+		$defaults = self::getDefaultConfig();
+		$data = array_merge($defaults, $data);
+
+		// this is a container for fields, basically like a fieldset
+		$form = new InputfieldWrapper();
+
+		$field = $modules->get("InputfieldCheckbox");
+		$field->name = "autoMarkup";
+		$field->label = __("Auto add markup");
+		$field->description = __("Automatically append stylesheets to head. Will be put to \"center position\"");
+		$field->value = $data['autoMarkup'];
+		$field->checked = $data['autoMarkup'];
+		$field->with = 50;
+		$form->add($field);
+
+		$field = $modules->get("InputfieldCheckbox");
+		$field->name = "grabConfigStyles";
+		$field->label = __("Auto grab stylesheets");
+		$field->description = __("Automatically grab stylesheets from \"\$config->styles\".");
+		$field->value = $data['grabConfigStyles'];
+		$field->checked = $data['grabConfigStyles'];
+		$field->width = 50;
+		$form->add($field);
+
+		return $form;
+	}
+
+
+	/**
+	 * Install and uninstall functions
+	 *
+	 */
+
+	// public function ___install() {}
+	// public function ___uninstall() {}
+}
