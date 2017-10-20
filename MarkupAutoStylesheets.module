@@ -12,6 +12,10 @@
 
 class MarkupAutoStylesheets extends WireData implements Module , ConfigurableModule {
 
+	const className = "MarkupAutoStylesheets";
+
+	const normalizeCssUrl = "vendor/necolas/normalize.css/normalize.css";
+
 	private $stylesheets = array(
 		'before' => array(),
 		'default' => array(),
@@ -23,15 +27,17 @@ class MarkupAutoStylesheets extends WireData implements Module , ConfigurableMod
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('Auto Stylesheets'),
-			'version' => '0.0.1',
+			'version' => '0.0.2',
 			'summary' => __('Automatically add stylesheets. Organize in three different priorities: \"before\", \"after\" and default.'),
 			'autoload' => true,
+			'singular' => true,
 			'requires' => array('ProcessWire>=3.0.0', 'PHP>=5.6.0')
 		);
 	}
 
 	static public function getDefaultConfig() {
 		return array(
+			'includeNormalize'  => true,
 			'autoMarkup' 		=> true,
 			'grabConfigStyles' 	=> true
 			);
@@ -56,7 +62,9 @@ class MarkupAutoStylesheets extends WireData implements Module , ConfigurableMod
 	}
 
 	public function ready() {
-
+		if($this->includeNormalize == true) {
+			$this->addBefore(wire("config")->urls->siteModules . self::className . "/" . self::normalizeCssUrl, 'normalize');
+		}
 	}
 
 
@@ -70,10 +78,9 @@ class MarkupAutoStylesheets extends WireData implements Module , ConfigurableMod
 	 * @return [type]           [description]
 	 */
 	public function insertStylesheetLinks(HookEvent $event) {
-		
-		if($this->autoMarkup == false || $this->page->template == 'admin') return;
-		bd($this->render());
-		$event->return = str_ireplace("</head>", $this->render()."\n</head>", $event->return); 
+
+		if($this->autoMarkup == false || $this->page->template->name == 'admin') return;
+		$event->return = str_ireplace("</head>", $this->render()."\n</head>", $event->return);
 	}
 
 
@@ -95,6 +102,15 @@ class MarkupAutoStylesheets extends WireData implements Module , ConfigurableMod
 		$this->addTo($this->stylesheets['after'], $input, $id, $options);
 	}
 
+	// public function ___unique() {}
+
+	/**
+	 * render
+	 * 
+	 * renders the markup
+	 *
+	 * @return string
+	 */
 	public function ___render() {
 		$string = "\n";
 		foreach ($this->getMergedArray(true) as $v) {
@@ -107,6 +123,7 @@ class MarkupAutoStylesheets extends WireData implements Module , ConfigurableMod
 	 * getMergedArray
 	 *
 	 * get flat array of all stylesheets
+	 * disables automarkup if argument != true
 	 * 
 	 * @param  boolean $retainAutoMarkup 	retain automatic markup inclusion, defaults to false
 	 * @return array                    	flat array of all stylesheets
@@ -239,7 +256,7 @@ class MarkupAutoStylesheets extends WireData implements Module , ConfigurableMod
 				if ((isset($id) && $id === $key) || $input === $value) {
 					unset($locationArray[$key]);
 					$idPhrase = isset($id) ? " with id \"$id\"" : "";
-					trigger_error("Duplicate \"$input\"$idPhrase removed from \"$location\"");
+					trigger_error("Duplicate \"$input\"$idPhrase removed from \"$location\" slot");
 				}
 			}
 		}
@@ -261,6 +278,15 @@ class MarkupAutoStylesheets extends WireData implements Module , ConfigurableMod
 
 		// this is a container for fields, basically like a fieldset
 		$form = new InputfieldWrapper();
+
+		$field = $modules->get("InputfieldCheckbox");
+		$field->name = "includeNormalize";
+		$field->label = __("Include normalize.css");
+		$field->description = __("Automatically prepend normalize.css");
+		$field->value = $data['includeNormalize'];
+		$field->checked = $data['includeNormalize'];
+		$field->with = 50;
+		$form->add($field);
 
 		$field = $modules->get("InputfieldCheckbox");
 		$field->name = "autoMarkup";

@@ -1,0 +1,52 @@
+[
+    {
+        "name": "necolas/normalize.css",
+        "version": "dev-master",
+        "version_normalized": "9999999-dev",
+        "source": {
+            "type": "git",
+            "url": "https://github.com/necolas/normalize.css",
+            "reference": "master"
+        },
+        "type": "library",
+        "installation-source": "source"
+    },
+    {
+        "name": "neemzy/stylus",
+        "version": "dev-master",
+        "version_normalized": "9999999-dev",
+        "source": {
+            "type": "git",
+            "url": "https://github.com/AustP/Stylus.php.git",
+            "reference": "121889b4773e2f7c38249492e9af9292dd8b62ef"
+        },
+        "dist": {
+            "type": "zip",
+            "url": "https://api.github.com/repos/AustP/Stylus.php/zipball/121889b4773e2f7c38249492e9af9292dd8b62ef",
+            "reference": "121889b4773e2f7c38249492e9af9292dd8b62ef",
+            "shasum": ""
+        },
+        "require": {
+            "php": ">=5.3.0"
+        },
+        "time": "2016-05-10 12:24:08",
+        "type": "library",
+        "installation-source": "source",
+        "autoload": {
+            "psr-0": {
+                "Stylus": "src/"
+            }
+        },
+        "notification-url": "https://packagist.org/downloads/",
+        "authors": [
+            {
+                "name": "AustP"
+            },
+            {
+                "name": "neemzy",
+                "email": "tom.panier@beseen.fr"
+            }
+        ],
+        "description": "Stylus preprocessor for PHP"
+    }
+]

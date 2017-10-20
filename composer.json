@@ -1,0 +1,29 @@
+{
+    "name": "stewo/markup-auto-stylesheets",
+    "type": "processwire-module",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Steffen",
+            "email": "mail@steffenhenschel.com"
+        }
+    ],
+    "repositories": [
+        {
+            "type": "package",
+            "package": {
+                "name": "necolas/normalize.css",
+                "version": "dev-master",
+                "source": {
+                    "url": "https://github.com/necolas/normalize.css",
+                    "type": "git",
+                    "reference": "master"
+                }
+            }
+        }
+    ],
+    "require": {
+        "neemzy/stylus": "dev-master",
+        "necolas/normalize.css": "dev-master"
+    }
+}
